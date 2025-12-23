@@ -2,6 +2,8 @@
 
 import django.db.models.deletion
 from django.db import migrations, models
+from django.core.validators import MinValueValidator
+from decimal import Decimal
 
 
 class Migration(migrations.Migration):
@@ -13,66 +15,87 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Categoria',
+            name="Categoria",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('nombre', models.CharField(max_length=100, unique=True)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("nombre", models.CharField(max_length=100, unique=True)),
             ],
             options={
-                'verbose_name': 'Categoría',
-                'verbose_name_plural': 'Categorías',
-                'ordering': ('nombre',),
+                "verbose_name": "Categoría",
+                "verbose_name_plural": "Categorías",
+                "ordering": ("nombre",),
             },
         ),
         migrations.CreateModel(
-            name='MotivoBaja',
+            name="MotivoBaja",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('nombre', models.CharField(max_length=120, unique=True)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("nombre", models.CharField(max_length=120, unique=True)),
             ],
             options={
-                'verbose_name': 'Motivo de baja',
-                'verbose_name_plural': 'Motivos de baja',
-                'ordering': ('nombre',),
+                "verbose_name": "Motivo de baja",
+                "verbose_name_plural": "Motivos de baja",
+                "ordering": ("nombre",),
             },
         ),
         migrations.CreateModel(
-            name='Ubicacion',
+            name="Ubicacion",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('nombre', models.CharField(max_length=120, unique=True)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("nombre", models.CharField(max_length=120, unique=True)),
             ],
             options={
-                'verbose_name': 'Ubicación',
-                'verbose_name_plural': 'Ubicaciones',
-                'ordering': ('nombre',),
+                "verbose_name": "Ubicación",
+                "verbose_name_plural": "Ubicaciones",
+                "ordering": ("nombre",),
             },
         ),
         migrations.CreateModel(
-            name='InventarioItem',
+            name="InventarioItem",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('codigo', models.CharField(db_index=True, editable=False, max_length=20, unique=True)),
-                ('foto', models.ImageField(blank=True, null=True, upload_to='inventario/items/')),
-                ('estado', models.CharField(choices=[('EN_USO', 'En uso'), ('ALMACEN', 'Almacén'), ('BAJA', 'Baja'), ('DESECHO', 'Desecho')], default='ALMACEN', max_length=20)),
-                ('marca', models.CharField(blank=True, max_length=80)),
-                ('modelo', models.CharField(blank=True, max_length=120)),
-                ('serie', models.CharField(blank=True, db_index=True, max_length=120)),
-                ('etiqueta_interna', models.CharField(blank=True, db_index=True, max_length=60)),
-                ('responsable', models.CharField(blank=True, max_length=120)),
-                ('observaciones', models.TextField(blank=True)),
-                ('fecha_alta', models.DateField(auto_now_add=True)),
-                ('fecha_baja', models.DateField(blank=True, null=True)),
-                ('activo', models.BooleanField(default=True)),
-                ('categoria', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='inventario.categoria')),
-                ('motivo_baja', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='items', to='inventario.motivobaja')),
-                ('ubicacion', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='inventario.ubicacion')),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                # BD lo genera (SIS001...) -> editable=False + blank=True para no exigirlo en admin/API
+                ("codigo", models.CharField(blank=True, db_index=True, editable=False, max_length=20, unique=True)),
+                ("foto", models.ImageField(blank=True, null=True, upload_to="inventario/items/")),
+                ("estado", models.CharField(choices=[("EN_USO", "En uso"), ("ALMACEN", "Almacén"), ("BAJA", "Baja"), ("DESECHO", "Desecho")], default="ALMACEN", max_length=20)),
+                ("marca", models.CharField(blank=True, max_length=80)),
+                ("modelo", models.CharField(blank=True, max_length=120)),
+                ("serie", models.CharField(blank=True, db_index=True, max_length=120)),
+                ("etiqueta_interna", models.CharField(blank=True, db_index=True, max_length=60)),
+                ("responsable", models.CharField(blank=True, max_length=120)),
+                ("observaciones", models.TextField(blank=True)),
+                # ✅ NUEVO
+                ("precio_sugerido_venta", models.DecimalField(
+                    blank=True,
+                    null=True,
+                    verbose_name="Precio sugerido de venta",
+                    max_digits=12,
+                    decimal_places=2,
+                    validators=[MinValueValidator(Decimal("0.00"))],
+                )),
+                ("fecha_alta", models.DateField(auto_now_add=True)),
+                ("fecha_baja", models.DateField(blank=True, null=True)),
+                ("activo", models.BooleanField(default=True)),
+                ("categoria", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to="inventario.categoria")),
+                ("motivo_baja", models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name="items", to="inventario.motivobaja")),
+                ("ubicacion", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to="inventario.ubicacion")),
             ],
             options={
-                'verbose_name': 'Item de inventario',
-                'verbose_name_plural': 'Items de inventario',
-                'ordering': ('-fecha_alta', '-id'),
-                'indexes': [models.Index(fields=['codigo'], name='inventario__codigo_dc39f5_idx'), models.Index(fields=['serie'], name='inventario__serie_121e04_idx'), models.Index(fields=['etiqueta_interna'], name='inventario__etiquet_ae6cc4_idx')],
+                "verbose_name": "Item de inventario",
+                "verbose_name_plural": "Items de inventario",
+                "ordering": ("-fecha_alta", "-id"),
             },
+        ),
+        migrations.AddIndex(
+            model_name="inventarioitem",
+            index=models.Index(fields=["codigo"], name="inventario__codigo_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="inventarioitem",
+            index=models.Index(fields=["serie"], name="inventario__serie_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="inventarioitem",
+            index=models.Index(fields=["etiqueta_interna"], name="inventario__etiqueta_interna_idx"),
         ),
     ]

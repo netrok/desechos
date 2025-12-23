@@ -18,7 +18,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env(
     DJANGO_DEBUG=(bool, False),
 )
-# Lee .env si existe
 environ.Env.read_env(BASE_DIR / ".env")
 
 # -----------------------------------------------------------------------------
@@ -37,7 +36,6 @@ ALLOWED_HOSTS = [
 # Application definition
 # -----------------------------------------------------------------------------
 INSTALLED_APPS = [
-    # Django
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -45,11 +43,9 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
-    # Third-party
     "rest_framework",
     "django_filters",
 
-    # Local apps
     "core",
     "inventario",
 ]
@@ -116,20 +112,31 @@ USE_I18N = True
 USE_TZ = True
 
 # -----------------------------------------------------------------------------
-# Static files
+# Static & Media
 # -----------------------------------------------------------------------------
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"  # para collectstatic (más adelante)
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # -----------------------------------------------------------------------------
-# DRF defaults (opcionales pero recomendados)
+# DRF defaults (recomendado)
 # -----------------------------------------------------------------------------
 REST_FRAMEWORK = {
-    "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
-}
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+    # Conservador: por defecto, solo lectura pública.
+    # (Cuando metas auth, ajustamos fino)
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",
+    ],
+}
