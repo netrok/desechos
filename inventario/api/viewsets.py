@@ -1,3 +1,4 @@
+# inventario/api/viewsets.py
 from io import BytesIO
 
 from django.http import HttpResponse
@@ -19,7 +20,8 @@ from reportlab.platypus import (
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
+from rest_framework.response import Response
 
 from inventario.models import Categoria, InventarioItem, MotivoBaja, Ubicacion
 from .serializers import (
@@ -28,6 +30,20 @@ from .serializers import (
     MotivoBajaSerializer,
     UbicacionSerializer,
 )
+
+
+# --- Permiso “staff” simple (sin meternos a grupos todavía) ---
+class IsStaffUser(IsAuthenticatedOrReadOnly):
+    """
+    - Lectura: pública
+    - Escritura: autenticado (por IsAuthenticatedOrReadOnly)
+    - Acciones sensibles: se controlan por permission_classes en @action
+    """
+    pass
+
+
+def _is_staff(user) -> bool:
+    return bool(user and user.is_authenticated and user.is_staff)
 
 
 class CategoriaViewSet(viewsets.ModelViewSet):
@@ -58,14 +74,7 @@ class MotivoBajaViewSet(viewsets.ModelViewSet):
 
 
 class InventarioItemViewSet(viewsets.ModelViewSet):
-    queryset = (
-        InventarioItem.objects.select_related("categoria", "ubicacion", "motivo_baja")
-        .all()
-        .order_by("-fecha_alta", "codigo")
-    )
     serializer_class = InventarioItemSerializer
-
-    # Lectura pública; escrituras requieren login
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -88,8 +97,21 @@ class InventarioItemViewSet(viewsets.ModelViewSet):
         "precio_sugerido_venta",
     ]
 
-    @action(detail=False, methods=["get"], url_path="export/xlsx", permission_classes=[IsAuthenticated])
+    def get_queryset(self):
+        return (
+            InventarioItem.objects.select_related("categoria", "ubicacion", "motivo_baja")
+            .all()
+            .order_by("-fecha_alta", "codigo")
+        )
+
+    # ----------------------------
+    # Export XLSX (SOLO STAFF)
+    # ----------------------------
+    @action(detail=False, methods=["get"], url_path="export/xlsx")
     def export_xlsx(self, request):
+        if not _is_staff(request.user):
+            return Response({"detail": "Solo staff."}, status=403)
+
         qs = self.filter_queryset(self.get_queryset())
 
         wb = Workbook()
@@ -120,7 +142,7 @@ class InventarioItemViewSet(viewsets.ModelViewSet):
                     it.codigo,
                     it.categoria.nombre if it.categoria_id else "",
                     it.ubicacion.nombre if it.ubicacion_id else "",
-                    it.estado,
+                    it.get_estado_display(),  # ✅ bonito
                     it.marca or "",
                     it.modelo or "",
                     it.serie or "",
@@ -134,6 +156,7 @@ class InventarioItemViewSet(viewsets.ModelViewSet):
                 ]
             )
 
+        # ancho decente
         for col_idx in range(1, len(headers) + 1):
             ws.column_dimensions[get_column_letter(col_idx)].width = 18
 
@@ -145,8 +168,14 @@ class InventarioItemViewSet(viewsets.ModelViewSet):
         wb.save(response)
         return response
 
-    @action(detail=False, methods=["get"], url_path="export/pdf", permission_classes=[IsAuthenticated])
+    # ----------------------------
+    # Export PDF listado (SOLO STAFF)
+    # ----------------------------
+    @action(detail=False, methods=["get"], url_path="export/pdf")
     def export_pdf(self, request):
+        if not _is_staff(request.user):
+            return Response({"detail": "Solo staff."}, status=403)
+
         qs = self.filter_queryset(self.get_queryset())
 
         buffer = BytesIO()
@@ -161,9 +190,10 @@ class InventarioItemViewSet(viewsets.ModelViewSet):
         )
 
         styles = getSampleStyleSheet()
-        story = []
-        story.append(Paragraph("Inventario de desechos electrónicos", styles["Title"]))
-        story.append(Spacer(1, 8))
+        story = [
+            Paragraph("Inventario de desechos electrónicos", styles["Title"]),
+            Spacer(1, 8),
+        ]
 
         headers = [
             "Foto",
@@ -193,18 +223,17 @@ class InventarioItemViewSet(viewsets.ModelViewSet):
                     it.codigo or "",
                     it.categoria.nombre if it.categoria_id else "",
                     it.ubicacion.nombre if it.ubicacion_id else "",
-                    it.estado,
+                    it.get_estado_display(),  # ✅ bonito
                     it.marca or "",
                     it.modelo or "",
                     it.serie or "",
                     "Sí" if it.activo else "No",
-                    f"{it.precio_sugerido_venta:.2f}" if it.precio_sugerido_venta is not None else "",
+                    f"${it.precio_sugerido_venta:.2f}" if it.precio_sugerido_venta is not None else "",
                 ]
             )
 
         col_widths = [50, 70, 90, 90, 70, 70, 90, 90, 55, 85]
         table = Table(data, colWidths=col_widths, repeatRows=1)
-
         table.setStyle(
             TableStyle(
                 [
@@ -228,6 +257,83 @@ class InventarioItemViewSet(viewsets.ModelViewSet):
         buffer.close()
 
         filename = f"inventario_{localdate().isoformat()}.pdf"
+        response = HttpResponse(pdf, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+    # ----------------------------
+    # Ficha PDF por item (SOLO STAFF)
+    # /api/items/{id}/ficha/pdf/
+    # ----------------------------
+    @action(detail=True, methods=["get"], url_path="ficha/pdf")
+    def ficha_pdf(self, request, pk=None):
+        if not _is_staff(request.user):
+            return Response({"detail": "Solo staff."}, status=403)
+
+        it = self.get_object()
+
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            leftMargin=24,
+            rightMargin=24,
+            topMargin=24,
+            bottomMargin=24,
+            title=f"Ficha {it.codigo}",
+        )
+
+        styles = getSampleStyleSheet()
+        story = [
+            Paragraph(f"Ficha de inventario: <b>{it.codigo}</b>", styles["Title"]),
+            Spacer(1, 10),
+        ]
+
+        # Foto grande
+        if it.foto and hasattr(it.foto, "path"):
+            try:
+                story.append(RLImage(it.foto.path, width=220, height=220))
+                story.append(Spacer(1, 10))
+            except Exception:
+                pass
+
+        data = [
+            ["Categoría", it.categoria.nombre if it.categoria_id else ""],
+            ["Ubicación", it.ubicacion.nombre if it.ubicacion_id else ""],
+            ["Estado", it.get_estado_display()],
+            ["Marca", it.marca or ""],
+            ["Modelo", it.modelo or ""],
+            ["Serie", it.serie or ""],
+            ["Etiqueta interna", it.etiqueta_interna or ""],
+            ["Responsable", it.responsable or ""],
+            ["Activo", "Sí" if it.activo else "No"],
+            ["Precio sugerido venta", f"${it.precio_sugerido_venta:.2f}" if it.precio_sugerido_venta is not None else ""],
+            ["Fecha alta", it.fecha_alta.isoformat() if it.fecha_alta else ""],
+            ["Fecha baja", it.fecha_baja.isoformat() if it.fecha_baja else ""],
+            ["Motivo baja", it.motivo_baja.nombre if it.motivo_baja_id else ""],
+        ]
+
+        table = Table(data, colWidths=[160, 340])
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F3F4F6")),
+                    ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#111827")),
+                    ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                    ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ]
+            )
+        )
+
+        story.append(table)
+        doc.build(story)
+
+        pdf = buffer.getvalue()
+        buffer.close()
+
+        filename = f"ficha_{it.codigo}_{localdate().isoformat()}.pdf"
         response = HttpResponse(pdf, content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response

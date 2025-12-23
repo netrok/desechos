@@ -1,0 +1,56 @@
+{% extends "inventario/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h4 mb-0">{{ title }}</h1>
+    <div class="text-muted small">UI interna (solo staff)</div>
+  </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="card card-body">
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger mb-3">
+      {{ form.non_field_errors }}
+    </div>
+  {% endif %}
+
+  <div class="row g-3">
+    {% for field in form %}
+      {% if field.field.widget.input_type == "checkbox" %}
+        <div class="col-md-6">
+          <div class="form-check form-switch mt-4">
+            {{ field }}
+            <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          </div>
+          {% if field.help_text %}
+            <div class="form-text">{{ field.help_text }}</div>
+          {% endif %}
+          {% if field.errors %}
+            <div class="text-danger small mt-1">{{ field.errors|striptags }}</div>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="col-md-6">
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}
+            <div class="form-text">{{ field.help_text }}</div>
+          {% endif %}
+          {% if field.errors %}
+            <div class="text-danger small mt-1">{{ field.errors|striptags }}</div>
+          {% endif %}
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="mt-4 d-flex gap-2">
+    <button class="btn btn-primary" type="submit">Guardar</button>
+    <a class="btn btn-outline-secondary" href="{% url 'inventario_ui:item_list' %}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

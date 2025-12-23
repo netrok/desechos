@@ -1,0 +1,54 @@
+{% extends "inventario/_base.html" %}
+{% block title %}{{ item.codigo }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h4 mb-0">{{ item.codigo }}</h1>
+    <div class="text-muted small">{{ item.categoria.nombre }} · {{ item.ubicacion.nombre }}</div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-dark" href="/api/items/{{ item.pk }}/ficha/pdf/">⬇️ PDF ficha</a>
+    <a class="btn btn-outline-secondary" href="{% url 'inventario_ui:item_update' item.pk %}">Editar</a>
+    <a class="btn btn-outline-danger" href="{% url 'inventario_ui:item_baja' item.pk %}">Baja</a>
+    <a class="btn btn-dark" href="{% url 'inventario_ui:item_list' %}">Volver</a>
+  </div>
+</div>
+
+<div class="card card-body">
+  <div class="row g-3">
+    <div class="col-md-4">
+      {% if item.foto %}
+        <img src="{{ item.foto.url }}" class="img-fluid rounded" style="border:1px solid #e5e7eb;">
+      {% else %}
+        <div class="text-muted">Sin foto</div>
+      {% endif %}
+    </div>
+
+    <div class="col-md-8">
+      <div class="row g-2">
+        <div class="col-md-6"><b>Estado:</b> {{ item.get_estado_display }}</div>
+        <div class="col-md-6"><b>Activo:</b> {% if item.activo %}Sí{% else %}No{% endif %}</div>
+
+        <div class="col-md-6"><b>Marca:</b> {{ item.marca|default:"-" }}</div>
+        <div class="col-md-6"><b>Modelo:</b> {{ item.modelo|default:"-" }}</div>
+
+        <div class="col-md-6"><b>Serie:</b> {{ item.serie|default:"-" }}</div>
+        <div class="col-md-6"><b>Etiqueta interna:</b> {{ item.etiqueta_interna|default:"-" }}</div>
+
+        <div class="col-md-6"><b>Responsable:</b> {{ item.responsable|default:"-" }}</div>
+        <div class="col-md-6"><b>Precio sugerido:</b>
+          {% if item.precio_sugerido_venta %}${{ item.precio_sugerido_venta }}{% else %}-{% endif %}
+        </div>
+
+        <div class="col-md-6"><b>Fecha alta:</b> {{ item.fecha_alta }}</div>
+        <div class="col-md-6"><b>Fecha baja:</b> {{ item.fecha_baja|default:"-" }}</div>
+
+        <div class="col-md-12"><b>Motivo baja:</b> {{ item.motivo_baja.nombre|default:"-" }}</div>
+        <div class="col-md-12"><b>Observaciones:</b><br>{{ item.observaciones|default:"-"|linebreaksbr }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
