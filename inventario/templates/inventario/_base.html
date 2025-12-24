@@ -17,14 +17,13 @@
 
     <div class="ms-auto d-flex align-items-center gap-2">
       <span class="text-white-50 small">👤 {{ request.user.username }}</span>
-      
-      {% if request.user.is_staff %}
-        <!-- Solo muestra el enlace "Admin" si el usuario es staff -->
+
+      {% if request.user.is_superuser %}
         <a class="btn btn-sm btn-outline-light" href="/admin/">Admin</a>
       {% endif %}
 
       <!-- Formulario de logout -->
-      <form method="POST" action="{% url 'logout' %}">
+      <form method="POST" action="{% url 'logout' %}" class="mb-0">
         {% csrf_token %}
         <button type="submit" class="btn btn-sm btn-outline-warning">Salir</button>
       </form>

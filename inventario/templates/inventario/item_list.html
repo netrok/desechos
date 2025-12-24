@@ -5,23 +5,35 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
     <h1 class="h4 mb-1">Inventario</h1>
-    <div class="text-muted small">UI interna (solo staff)</div>
+    <div class="text-muted small">
+      {% if can_admin %}
+        Acceso: Admin
+      {% elif can_edit %}
+        Acceso: Editor
+      {% else %}
+        Acceso: Solo lectura
+      {% endif %}
+    </div>
   </div>
 
   <div class="d-flex gap-2">
-    <a class="btn btn-primary" href="{% url 'inventario_ui:item_create' %}">
-      ➕ Nuevo
-    </a>
+    {% if can_edit %}
+      <a class="btn btn-primary" href="{% url 'inventario_ui:item_create' %}">
+        ➕ Nuevo
+      </a>
+    {% endif %}
 
-    <a class="btn btn-outline-success"
-       href="/api/items/export/xlsx/?{{ request.GET.urlencode }}">
-      ⬇️ XLSX
-    </a>
+    {% if can_admin %}
+      <a class="btn btn-outline-success"
+         href="/api/items/export/xlsx/?{{ request.GET.urlencode }}">
+        ⬇️ XLSX
+      </a>
 
-    <a class="btn btn-outline-danger"
-       href="/api/items/export/pdf/?{{ request.GET.urlencode }}">
-      ⬇️ PDF
-    </a>
+      <a class="btn btn-outline-danger"
+         href="/api/items/export/pdf/?{{ request.GET.urlencode }}">
+        ⬇️ PDF
+      </a>
+    {% endif %}
   </div>
 </div>
 
@@ -158,20 +170,24 @@
                   Ver
                 </a>
 
-                <a class="btn btn-sm btn-outline-secondary"
-                   href="{% url 'inventario_ui:item_update' it.pk %}?next={{ request.get_full_path|urlencode }}">
-                  Editar
-                </a>
+                {% if can_edit %}
+                  <a class="btn btn-sm btn-outline-secondary"
+                     href="{% url 'inventario_ui:item_update' it.pk %}?next={{ request.get_full_path|urlencode }}">
+                    Editar
+                  </a>
+                {% endif %}
 
-                <a class="btn btn-sm btn-outline-danger"
-                   href="{% url 'inventario_ui:item_baja' it.pk %}?next={{ request.get_full_path|urlencode }}">
-                  Baja
-                </a>
+                {% if can_admin %}
+                  <a class="btn btn-sm btn-outline-danger"
+                     href="{% url 'inventario_ui:item_baja' it.pk %}?next={{ request.get_full_path|urlencode }}">
+                    Baja
+                  </a>
 
-                <a class="btn btn-sm btn-outline-dark"
-                   href="/api/items/{{ it.pk }}/ficha/pdf/">
-                  PDF
-                </a>
+                  <a class="btn btn-sm btn-outline-dark"
+                     href="/api/items/{{ it.pk }}/ficha/pdf/">
+                    PDF
+                  </a>
+                {% endif %}
               </div>
             </td>
           </tr>
