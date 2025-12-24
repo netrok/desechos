@@ -14,7 +14,8 @@ LOGIN_URL = "/login/"
 # ---- Permisos por grupos ----
 GROUP_VIEWER = "INVENTARIO_VIEWER"
 GROUP_EDITOR = "INVENTARIO_EDITOR"
-GROUP_ADMIN  = "INVENTARIO_ADMIN"
+GROUP_ADMIN = "INVENTARIO_ADMIN"
+
 
 def has_any_group(user, groups: tuple[str, ...]) -> bool:
     if not user.is_authenticated:
@@ -22,6 +23,7 @@ def has_any_group(user, groups: tuple[str, ...]) -> bool:
     if user.is_superuser:
         return True
     return user.groups.filter(name__in=groups).exists()
+
 
 def require_any(*groups: str):
     """
@@ -35,7 +37,7 @@ def require_any(*groups: str):
 
 
 # -----------------------------
-# Listado / detalle: VIEWER (o superior)
+# Listado: VIEWER (o superior)
 # -----------------------------
 @require_any(GROUP_VIEWER, GROUP_EDITOR, GROUP_ADMIN)
 def item_list(request):
@@ -87,13 +89,16 @@ def item_list(request):
             "estado": estado,
             "activo": activo,
         },
-        # flags útiles para la UI (botones)
+        # flags para la UI (botones)
         "can_edit": has_any_group(request.user, (GROUP_EDITOR, GROUP_ADMIN)),
         "can_admin": has_any_group(request.user, (GROUP_ADMIN,)),
     }
     return render(request, "inventario/item_list.html", context)
 
 
+# -----------------------------
+# Detalle: VIEWER (o superior)
+# -----------------------------
 @require_any(GROUP_VIEWER, GROUP_EDITOR, GROUP_ADMIN)
 def item_detail(request, pk: int):
     item = get_object_or_404(
@@ -112,7 +117,7 @@ def item_detail(request, pk: int):
 
 
 # -----------------------------
-# Crear / editar: EDITOR (o ADMIN)
+# Crear: EDITOR (o ADMIN) + Guardar y agregar otro
 # -----------------------------
 @require_any(GROUP_EDITOR, GROUP_ADMIN)
 def item_create(request):
@@ -125,8 +130,17 @@ def item_create(request):
                 obj.save()
                 obj.refresh_from_db()
 
+                action = request.POST.get("action", "save_view")
+
+                # ✅ Captura rápida: guardar y limpiar para otro registro
+                if action == "save_new":
+                    messages.success(request, f"✅ Guardado: {obj.codigo}. Listo para capturar otro.")
+                    return redirect("inventario_ui:item_create")
+
+                # Guardado normal: ir a detalle
                 messages.success(request, f"✅ Item guardado correctamente: {obj.codigo}")
                 return redirect("inventario_ui:item_detail", pk=obj.pk)
+
             except ValidationError as e:
                 form.add_error(None, e)
                 messages.error(request, "❌ No se pudo guardar. Revisa los campos.")
@@ -136,6 +150,9 @@ def item_create(request):
     return render(request, "inventario/item_form.html", {"form": form, "title": "Nuevo item"})
 
 
+# -----------------------------
+# Editar: EDITOR (o ADMIN)
+# -----------------------------
 @require_any(GROUP_EDITOR, GROUP_ADMIN)
 def item_update(request, pk: int):
     item = get_object_or_404(
@@ -181,8 +198,11 @@ def item_baja(request, pk: int):
         form = InventarioBajaForm(request.POST, instance=item)
         if form.is_valid():
             obj = form.save(commit=False)
+
+            # Baja/Desecho => marcar activo False
             obj.activo = False
 
+            # Si no mandan fecha, ponemos hoy
             if not obj.fecha_baja:
                 obj.fecha_baja = timezone.localdate()
 

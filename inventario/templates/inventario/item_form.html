@@ -6,7 +6,15 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
     <h1 class="h4 mb-0">{{ title }}</h1>
-    <div class="text-muted small">UI interna (solo staff)</div>
+    <div class="text-muted small">
+      {% if request.user.is_superuser %}
+        Acceso: Admin
+      {% elif can_edit %}
+        Acceso: Editor
+      {% else %}
+        Acceso: Solo lectura
+      {% endif %}
+    </div>
   </div>
 </div>
 
@@ -54,13 +62,32 @@
   </div>
 
   <div class="mt-4 d-flex gap-2">
-    <button class="btn btn-primary" type="submit">Guardar</button>
+    {% if "Nuevo" in title or "nuevo" in title %}
+      <button class="btn btn-primary" type="submit" name="action" value="save_new">
+        💾 Guardar + Nuevo
+      </button>
 
-    <a class="btn btn-outline-secondary"
+      <button class="btn btn-outline-secondary" type="submit" name="action" value="save_view">
+        Guardar
+      </button>
+    {% else %}
+      <button class="btn btn-primary" type="submit" name="action" value="save_view">
+        Guardar cambios
+      </button>
+    {% endif %}
+
+    <a class="btn btn-outline-dark"
        href="{% if next_url %}{{ next_url }}{% else %}{% url 'inventario_ui:item_list' %}{% endif %}">
       Cancelar
     </a>
   </div>
 </form>
+
+<script>
+  window.addEventListener("load", () => {
+    const el = document.querySelector("input, select, textarea");
+    if (el) el.focus();
+  });
+</script>
 {% endwith %}
 {% endblock %}
