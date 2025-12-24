@@ -1,7 +1,8 @@
-{% extends "inventario/base.html" %}
+{% extends "inventario/_base.html" %}
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
+{% with next_url=request.GET.next|default:request.META.HTTP_REFERER|default:"" %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
     <h1 class="h4 mb-0">{{ title }}</h1>
@@ -11,6 +12,10 @@
 
 <form method="post" enctype="multipart/form-data" class="card card-body">
   {% csrf_token %}
+
+  {% if next_url %}
+    <input type="hidden" name="next" value="{{ next_url }}">
+  {% endif %}
 
   {% if form.non_field_errors %}
     <div class="alert alert-danger mb-3">
@@ -50,7 +55,12 @@
 
   <div class="mt-4 d-flex gap-2">
     <button class="btn btn-primary" type="submit">Guardar</button>
-    <a class="btn btn-outline-secondary" href="{% url 'inventario_ui:item_list' %}">Cancelar</a>
+
+    <a class="btn btn-outline-secondary"
+       href="{% if next_url %}{{ next_url }}{% else %}{% url 'inventario_ui:item_list' %}{% endif %}">
+      Cancelar
+    </a>
   </div>
 </form>
+{% endwith %}
 {% endblock %}

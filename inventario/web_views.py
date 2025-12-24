@@ -1,4 +1,6 @@
+from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -7,20 +9,21 @@ from django.utils import timezone
 from .forms import InventarioBajaForm, InventarioItemForm
 from .models import Categoria, InventarioItem, Ubicacion
 
-
-STAFF_LOGIN_URL = "/admin/login/"
+STAFF_LOGIN_URL = "/login/"  # Definir aquí solo una vez para el login
 
 
 @staff_member_required(login_url=STAFF_LOGIN_URL)
 def item_list(request):
     qs = InventarioItem.objects.select_related("categoria", "ubicacion", "motivo_baja").all()
 
+    # Filtros de búsqueda
     search = request.GET.get("q", "").strip()
     categoria_id = request.GET.get("categoria", "").strip()
     ubicacion_id = request.GET.get("ubicacion", "").strip()
     estado = request.GET.get("estado", "").strip()
     activo = request.GET.get("activo", "").strip()
 
+    # Aplicando filtros de búsqueda
     if search:
         qs = qs.filter(
             Q(codigo__icontains=search)
@@ -43,8 +46,8 @@ def item_list(request):
     if activo in ("true", "false"):
         qs = qs.filter(activo=(activo == "true"))
 
+    # Ordenar y paginar resultados
     qs = qs.order_by("-fecha_alta", "codigo")
-
     paginator = Paginator(qs, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
 
@@ -79,13 +82,19 @@ def item_create(request):
         form = InventarioItemForm(request.POST, request.FILES)
         if form.is_valid():
             obj = form.save(commit=False)
-            obj.full_clean()
-            obj.save()
+            try:
+                obj.full_clean()
+                obj.save()
 
-            # ✅ IMPORTANTE: trae el codigo SIS### generado por la BD
-            obj.refresh_from_db()
+                # Trae el código generado por la BD
+                obj.refresh_from_db()
 
-            return redirect("inventario_ui:item_detail", pk=obj.pk)
+                messages.success(request, f"✅ Item guardado correctamente: {obj.codigo}")
+                return redirect("inventario_ui:item_detail", pk=obj.pk)
+            except ValidationError as e:
+                # Agregar errores del modelo al form sin reventar
+                form.add_error(None, e)
+                messages.error(request, "❌ No se pudo guardar. Revisa los campos.")
     else:
         form = InventarioItemForm()
 
@@ -103,10 +112,16 @@ def item_update(request, pk: int):
         form = InventarioItemForm(request.POST, request.FILES, instance=item)
         if form.is_valid():
             obj = form.save(commit=False)
-            obj.full_clean()
-            obj.save()
-            obj.refresh_from_db()
-            return redirect("inventario_ui:item_detail", pk=obj.pk)
+            try:
+                obj.full_clean()
+                obj.save()
+                obj.refresh_from_db()
+
+                messages.success(request, f"✅ Cambios guardados: {obj.codigo or obj.pk}")
+                return redirect("inventario_ui:item_detail", pk=obj.pk)
+            except ValidationError as e:
+                form.add_error(None, e)
+                messages.error(request, "❌ No se pudo actualizar. Revisa los campos.")
     else:
         form = InventarioItemForm(instance=item)
 
@@ -126,17 +141,23 @@ def item_baja(request, pk: int):
         if form.is_valid():
             obj = form.save(commit=False)
 
-            # ✅ intención explícita: baja/desecho => activo false
+            # Baja/Desecho => marcar activo False
             obj.activo = False
 
-            # Si por alguna razón no mandan fecha, pon hoy (opcional, pero práctico)
+            # Si no mandan fecha, ponemos hoy
             if not obj.fecha_baja:
                 obj.fecha_baja = timezone.localdate()
 
-            obj.full_clean()
-            obj.save()
-            obj.refresh_from_db()
-            return redirect("inventario_ui:item_detail", pk=obj.pk)
+            try:
+                obj.full_clean()
+                obj.save()
+                obj.refresh_from_db()
+
+                messages.success(request, f"⚠️ Item marcado como baja/desecho: {obj.codigo or obj.pk}")
+                return redirect("inventario_ui:item_detail", pk=obj.pk)
+            except ValidationError as e:
+                form.add_error(None, e)
+                messages.error(request, "❌ No se pudo dar de baja. Revisa fecha/motivo.")
     else:
         form = InventarioBajaForm(
             instance=item,
@@ -144,3 +165,4 @@ def item_baja(request, pk: int):
         )
 
     return render(request, "inventario/item_baja.html", {"form": form, "item": item})
+

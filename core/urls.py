@@ -1,6 +1,7 @@
+# core/urls.py
 from django.urls import path
 from .views import health
 
 urlpatterns = [
-    path("", health, name="health"),
+    path('health/', health, name='health'),  # Define la ruta para el health check
 ]

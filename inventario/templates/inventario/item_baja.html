@@ -1,27 +1,83 @@
 {% extends "inventario/_base.html" %}
-{% block title %}Baja {{ item.codigo }}{% endblock %}
+{% block title %}Baja {{ item.codigo|default:"Item" }}{% endblock %}
 
 {% block content %}
-<h1 class="h4 mb-3">Baja / Desecho: {{ item.codigo }}</h1>
+{% with next_url=request.GET.next|default:request.META.HTTP_REFERER|default:"" %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h4 mb-0">Baja / Desecho</h1>
+    <div class="text-muted small">
+      {{ item.codigo|default:"(sin código)" }} · {{ item.categoria.nombre }} · {{ item.ubicacion.nombre }}
+    </div>
+  </div>
+
+  <a class="btn btn-outline-dark"
+     href="{% if next_url %}{{ next_url }}{% else %}{% url 'inventario_ui:item_detail' item.pk %}{% endif %}">
+    Volver
+  </a>
+</div>
+
+<div class="alert alert-warning">
+  <div class="fw-semibold">⚠️ Atención</div>
+  Al confirmar, este item quedará como <b>No activo</b> y su estado será <b>BAJA</b> o <b>DESECHO</b>.
+</div>
 
 <form method="post" class="card card-body">
   {% csrf_token %}
   {{ form.non_field_errors }}
 
   <div class="row g-3">
-    {% for field in form %}
+
+    {# Estado #}
+    {% if form.estado %}
       <div class="col-md-6">
-        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-        {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|striptags }}</div>{% endif %}
+        <label class="form-label" for="{{ form.estado.id_for_label }}">{{ form.estado.label }}</label>
+        {{ form.estado }}
+        {% if form.estado.help_text %}<div class="form-text">{{ form.estado.help_text }}</div>{% endif %}
+        {% if form.estado.errors %}<div class="text-danger small mt-1">{{ form.estado.errors|striptags }}</div>{% endif %}
       </div>
-    {% endfor %}
+    {% endif %}
+
+    {# Fecha baja #}
+    {% if form.fecha_baja %}
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.fecha_baja.id_for_label }}">{{ form.fecha_baja.label }}</label>
+        {{ form.fecha_baja }}
+        {% if form.fecha_baja.help_text %}<div class="form-text">{{ form.fecha_baja.help_text }}</div>{% endif %}
+        {% if form.fecha_baja.errors %}<div class="text-danger small mt-1">{{ form.fecha_baja.errors|striptags }}</div>{% endif %}
+      </div>
+    {% endif %}
+
+    {# Motivo baja #}
+    {% if form.motivo_baja %}
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.motivo_baja.id_for_label }}">{{ form.motivo_baja.label }}</label>
+        {{ form.motivo_baja }}
+        {% if form.motivo_baja.help_text %}<div class="form-text">{{ form.motivo_baja.help_text }}</div>{% endif %}
+        {% if form.motivo_baja.errors %}<div class="text-danger small mt-1">{{ form.motivo_baja.errors|striptags }}</div>{% endif %}
+      </div>
+    {% endif %}
+
+    {# Observaciones (si viene en el form) #}
+    {% if form.observaciones %}
+      <div class="col-12">
+        <label class="form-label" for="{{ form.observaciones.id_for_label }}">{{ form.observaciones.label }}</label>
+        {{ form.observaciones }}
+        {% if form.observaciones.help_text %}<div class="form-text">{{ form.observaciones.help_text }}</div>{% endif %}
+        {% if form.observaciones.errors %}<div class="text-danger small mt-1">{{ form.observaciones.errors|striptags }}</div>{% endif %}
+      </div>
+    {% endif %}
+
   </div>
 
   <div class="mt-3 d-flex gap-2">
     <button class="btn btn-danger" type="submit">Confirmar baja</button>
-    <a class="btn btn-outline-secondary" href="{% url 'inventario_ui:item_detail' item.pk %}">Cancelar</a>
+
+    <a class="btn btn-outline-secondary"
+       href="{% url 'inventario_ui:item_detail' item.pk %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">
+       Cancelar
+    </a>
   </div>
 </form>
+{% endwith %}
 {% endblock %}

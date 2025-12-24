@@ -1,18 +1,34 @@
 {% extends "inventario/_base.html" %}
-{% block title %}{{ item.codigo }}{% endblock %}
+{% block title %}{{ item.codigo|default:"Item" }}{% endblock %}
 
 {% block content %}
+{% with next_url=request.GET.next|default:request.META.HTTP_REFERER|default:"" %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
-    <h1 class="h4 mb-0">{{ item.codigo }}</h1>
-    <div class="text-muted small">{{ item.categoria.nombre }} · {{ item.ubicacion.nombre }}</div>
+    <h1 class="h4 mb-0">{{ item.codigo|default:"(sin código)" }}</h1>
+    <div class="text-muted small">
+      {{ item.categoria.nombre }} · {{ item.ubicacion.nombre }}
+    </div>
   </div>
 
-  <div class="d-flex gap-2">
-    <a class="btn btn-outline-dark" href="/api/items/{{ item.pk }}/ficha/pdf/">⬇️ PDF ficha</a>
-    <a class="btn btn-outline-secondary" href="{% url 'inventario_ui:item_update' item.pk %}">Editar</a>
-    <a class="btn btn-outline-danger" href="{% url 'inventario_ui:item_baja' item.pk %}">Baja</a>
-    <a class="btn btn-dark" href="{% url 'inventario_ui:item_list' %}">Volver</a>
+  <div class="d-flex gap-2 flex-wrap justify-content-end">
+    <a class="btn btn-outline-dark"
+       href="/api/items/{{ item.pk }}/ficha/pdf/">⬇️ PDF ficha</a>
+
+    <a class="btn btn-outline-secondary"
+       href="{% url 'inventario_ui:item_update' item.pk %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">
+       Editar
+    </a>
+
+    <a class="btn btn-outline-danger"
+       href="{% url 'inventario_ui:item_baja' item.pk %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">
+       Baja
+    </a>
+
+    <a class="btn btn-dark"
+       href="{% if next_url %}{{ next_url }}{% else %}{% url 'inventario_ui:item_list' %}{% endif %}">
+       Volver
+    </a>
   </div>
 </div>
 
@@ -20,16 +36,39 @@
   <div class="row g-3">
     <div class="col-md-4">
       {% if item.foto %}
-        <img src="{{ item.foto.url }}" class="img-fluid rounded" style="border:1px solid #e5e7eb;">
+        <img src="{{ item.foto.url }}" class="img-fluid rounded"
+             style="border:1px solid #e5e7eb; max-height: 320px; object-fit: cover;">
       {% else %}
-        <div class="text-muted">Sin foto</div>
+        <div class="d-flex align-items-center justify-content-center rounded bg-light text-muted"
+             style="border:1px dashed #d1d5db; height: 220px;">
+          Sin foto
+        </div>
       {% endif %}
     </div>
 
     <div class="col-md-8">
       <div class="row g-2">
-        <div class="col-md-6"><b>Estado:</b> {{ item.get_estado_display }}</div>
-        <div class="col-md-6"><b>Activo:</b> {% if item.activo %}Sí{% else %}No{% endif %}</div>
+        <div class="col-md-6">
+          <b>Estado:</b>
+          {% if item.estado == "EN_USO" %}
+            <span class="badge text-bg-success">{{ item.get_estado_display }}</span>
+          {% elif item.estado == "ALMACEN" %}
+            <span class="badge text-bg-secondary">{{ item.get_estado_display }}</span>
+          {% elif item.estado == "BAJA" %}
+            <span class="badge text-bg-warning">{{ item.get_estado_display }}</span>
+          {% else %}
+            <span class="badge text-bg-danger">{{ item.get_estado_display }}</span>
+          {% endif %}
+        </div>
+
+        <div class="col-md-6">
+          <b>Activo:</b>
+          {% if item.activo %}
+            <span class="badge text-bg-success">Sí</span>
+          {% else %}
+            <span class="badge text-bg-danger">No</span>
+          {% endif %}
+        </div>
 
         <div class="col-md-6"><b>Marca:</b> {{ item.marca|default:"-" }}</div>
         <div class="col-md-6"><b>Modelo:</b> {{ item.modelo|default:"-" }}</div>
@@ -38,17 +77,34 @@
         <div class="col-md-6"><b>Etiqueta interna:</b> {{ item.etiqueta_interna|default:"-" }}</div>
 
         <div class="col-md-6"><b>Responsable:</b> {{ item.responsable|default:"-" }}</div>
-        <div class="col-md-6"><b>Precio sugerido:</b>
+        <div class="col-md-6">
+          <b>Precio sugerido:</b>
           {% if item.precio_sugerido_venta %}${{ item.precio_sugerido_venta }}{% else %}-{% endif %}
         </div>
 
-        <div class="col-md-6"><b>Fecha alta:</b> {{ item.fecha_alta }}</div>
-        <div class="col-md-6"><b>Fecha baja:</b> {{ item.fecha_baja|default:"-" }}</div>
+        <div class="col-md-6"><b>Fecha alta:</b> {{ item.fecha_alta|default:"-" }}</div>
 
-        <div class="col-md-12"><b>Motivo baja:</b> {{ item.motivo_baja.nombre|default:"-" }}</div>
-        <div class="col-md-12"><b>Observaciones:</b><br>{{ item.observaciones|default:"-"|linebreaksbr }}</div>
+        <div class="col-md-6">
+          <b>Fecha baja:</b>
+          {% if item.fecha_baja %}{{ item.fecha_baja }}{% else %}-{% endif %}
+        </div>
+
+        <div class="col-md-12">
+          <b>Motivo baja:</b>
+          {% if item.motivo_baja %}{{ item.motivo_baja.nombre }}{% else %}-{% endif %}
+        </div>
+
+        <div class="col-md-12">
+          <b>Observaciones:</b><br>
+          {% if item.observaciones %}
+            {{ item.observaciones|linebreaksbr }}
+          {% else %}
+            -
+          {% endif %}
+        </div>
       </div>
     </div>
   </div>
 </div>
+{% endwith %}
 {% endblock %}
