@@ -1,0 +1,44 @@
+<h1>Venta {{ venta.folio }}</h1>
+<p>Cliente: {{ venta.cliente.nombre }}</p>
+<p>Estado: {{ venta.estado }}</p>
+<p>Subtotal: ${{ venta.subtotal }} | Desc: ${{ venta.descuento }} | Total: ${{ venta.total }}</p>
+
+<h2>Detalles</h2>
+<ul>
+  {% for d in venta.detalles.all %}
+    <li>{{ d.articulo.producto.sku }} / {{ d.articulo.serie }} - ${{ d.precio }} (desc ${{ d.descuento }})</li>
+  {% empty %}
+    <li>Sin artículos.</li>
+  {% endfor %}
+</ul>
+
+<h3>Agregar artículo</h3>
+<form method="post" action="{% url 'ventas:venta_agregar_articulo' venta.id %}">
+  {% csrf_token %}
+  <select name="articulo_id" required>
+    <option value="">-- artículo disponible --</option>
+    {% for a in articulos_disponibles %}
+      <option value="{{ a.id }}">{{ a.producto.sku }} / {{ a.serie|default:"SIN SERIE" }} ({{ a.estado }})</option>
+    {% endfor %}
+  </select>
+  <input name="precio" placeholder="precio" />
+  <button type="submit">Agregar</button>
+</form>
+
+<h2>Acciones</h2>
+<form method="post" action="{% url 'ventas:venta_reservar' venta.id %}">{% csrf_token %}<button>Reservar</button></form>
+<form method="post" action="{% url 'ventas:venta_pagar' venta.id %}">
+  {% csrf_token %}
+  <select name="metodo">
+    <option value="EFECTIVO">EFECTIVO</option>
+    <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+    <option value="TARJETA">TARJETA</option>
+  </select>
+  <input name="monto" placeholder="monto" value="{{ venta.total }}" />
+  <input name="referencia" placeholder="referencia" />
+  <button>Pagar</button>
+</form>
+<form method="post" action="{% url 'ventas:venta_entregar' venta.id %}">{% csrf_token %}<button>Entregar</button></form>
+<form method="post" action="{% url 'ventas:venta_cancelar' venta.id %}">{% csrf_token %}<button>Cancelar</button></form>
+
+<p><a href="{% url 'ventas:home' %}">Volver</a></p>

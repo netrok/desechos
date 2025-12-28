@@ -1,0 +1,14 @@
+<h1>Ventas</h1>
+<p><a href="{% url 'ventas:venta_nueva' %}">Nueva venta</a></p>
+
+<ul>
+  {% for v in ventas %}
+    <li>
+      <a href="{% url 'ventas:venta_detalle' v.id %}">
+        {{ v.folio }} - {{ v.cliente.nombre }} - {{ v.estado }} - ${{ v.total }}
+      </a>
+    </li>
+  {% empty %}
+    <li>No hay ventas.</li>
+  {% endfor %}
+</ul>

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div class="row" style="justify-content:space-between;align-items:flex-end">
+    <form method="get" style="flex:1">
+      <label>Buscar cliente</label>
+      <input name="q" value="{{ q }}" placeholder="Nombre...">
+    </form>
+    <div>
+      <a class="btn" href="{% url 'ventas:cliente_create' %}">+ Nuevo cliente</a>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Nombre</th><th>Tel</th><th>Email</th><th>RFC</th></tr></thead>
+    <tbody>
+      {% for c in clientes %}
+        <tr>
+          <td><b>{{ c.nombre }}</b></td>
+          <td>{{ c.telefono|default:"-" }}</td>
+          <td>{{ c.email|default:"-" }}</td>
+          <td>{{ c.rfc|default:"-" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4" class="muted">Sin clientes.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

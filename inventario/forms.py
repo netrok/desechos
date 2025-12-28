@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from django import forms
 from .models import InventarioItem
 
@@ -22,11 +24,20 @@ class BootstrapModelForm(forms.ModelForm):
                 w.attrs.setdefault("class", "form-control")
 
 
+def _model_has_field(model, field_name: str) -> bool:
+    try:
+        model._meta.get_field(field_name)
+        return True
+    except Exception:
+        return False
+
+
 class InventarioItemForm(BootstrapModelForm):
     """
     Alta/Edición: NO se permite BAJA/DESECHO aquí.
     La baja se hace en su pantalla (InventarioBajaForm).
     """
+
     class Meta:
         model = InventarioItem
         fields = [
@@ -40,14 +51,28 @@ class InventarioItemForm(BootstrapModelForm):
             "etiqueta_interna",
             "responsable",
             "observaciones",
-            "precio_sugerido_venta",
+            # Nota: lo agregamos dinámicamente en __init__ solo si existe en el modelo
         ]
-        widgets = {
-            "precio_sugerido_venta": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
-        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # Agrega precio_sugerido_venta solo si el modelo lo tiene
+        if _model_has_field(InventarioItem, "precio_sugerido_venta"):
+            self.fields["precio_sugerido_venta"] = forms.DecimalField(
+                required=False,
+                min_value=0,
+                decimal_places=2,
+                max_digits=12,
+                widget=forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+                label="Precio sugerido de venta",
+            )
+
+            # Si ya viene en instance, precárgalo
+            if self.instance and getattr(self.instance, "pk", None):
+                self.fields["precio_sugerido_venta"].initial = getattr(
+                    self.instance, "precio_sugerido_venta", None
+                )
 
         # Solo estados válidos en Alta/Edición
         allowed = {InventarioItem.Estado.EN_USO, InventarioItem.Estado.ALMACEN}
@@ -63,18 +88,36 @@ class InventarioItemForm(BootstrapModelForm):
 
         # Blindaje: aquí NO hay bajas.
         estado = cleaned.get("estado") or InventarioItem.Estado.ALMACEN
-
         if estado in (InventarioItem.Estado.BAJA, InventarioItem.Estado.DESECHO):
             estado = InventarioItem.Estado.ALMACEN
-
         cleaned["estado"] = estado
+
+        # Si existe el campo, muévelo al cleaned_data (por si lo agregamos dinámico)
+        if "precio_sugerido_venta" in self.fields:
+            cleaned["precio_sugerido_venta"] = cleaned.get("precio_sugerido_venta")
+
         return cleaned
+
+    def save(self, commit=True):
+        obj = super().save(commit=False)
+
+        # Guarda el precio_sugerido_venta si el modelo lo tiene
+        if "precio_sugerido_venta" in self.cleaned_data and _model_has_field(
+            InventarioItem, "precio_sugerido_venta"
+        ):
+            setattr(obj, "precio_sugerido_venta", self.cleaned_data.get("precio_sugerido_venta"))
+
+        if commit:
+            obj.save()
+            self.save_m2m()
+        return obj
 
 
 class InventarioBajaForm(BootstrapModelForm):
     """
     Baja/Desecho: aquí sí pedimos fecha_baja y motivo_baja.
     """
+
     class Meta:
         model = InventarioItem
         fields = ["estado", "fecha_baja", "motivo_baja", "observaciones"]

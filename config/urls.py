@@ -7,24 +7,27 @@ from django.views.generic import RedirectView
 from core.views import login_view, logout_view
 
 urlpatterns = [
-    # Home -> login
+    # Home -> login (o cámbialo a /inventario/ si prefieres)
     path("", RedirectView.as_view(url="/login/", permanent=False)),
 
-    # Admin (NO se envuelve con decoradores)
+    # Admin
     path("admin/", admin.site.urls),
 
-    # Health check (si tu core.urls lo maneja)
+    # Auth custom
+    path("login/", login_view, name="login"),
+    path("logout/", logout_view, name="logout"),
+
+    # Health
     path("health/", include("core.urls")),
 
     # API
     path("api/", include("inventario.api.urls")),
 
-    # UI inventario
+    # UI Inventario
     path("inventario/", include("inventario.web_urls")),
 
-    # Login/Logout custom
-    path("login/", login_view, name="login"),
-    path("logout/", logout_view, name="logout"),
+    # UI Ventas
+    path("ventas/", include("ventas.urls")),
 ]
 
 if settings.DEBUG:

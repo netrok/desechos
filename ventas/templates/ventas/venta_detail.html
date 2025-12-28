@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h3>Venta: <b>{{ venta.folio }}</b> <span class="muted">({{ venta.estado }})</span></h3>
+  <p class="muted">Cliente: <b>{{ venta.cliente.nombre }}</b> | Vendedor: {{ venta.vendedor }} | Creada: {{ venta.creada_en }}</p>
+
+  <div class="row">
+    <form method="post" action="{% url 'ventas:venta_action' venta.id 'recalcular' %}">
+      {% csrf_token %}<button class="btn2">Recalcular</button>
+    </form>
+
+    <form method="post" action="{% url 'ventas:venta_action' venta.id 'reservar' %}">
+      {% csrf_token %}<button class="btn2">Reservar</button>
+    </form>
+
+    <form method="post" action="{% url 'ventas:venta_action' venta.id 'pagar_efectivo' %}">
+      {% csrf_token %}<button class="btn2">Pagar (efectivo=total)</button>
+    </form>
+
+    <form method="post" action="{% url 'ventas:venta_action' venta.id 'entregar' %}">
+      {% csrf_token %}<button class="btn2">Entregar</button>
+    </form>
+
+    <form method="post" action="{% url 'ventas:venta_action' venta.id 'cancelar' %}">
+      {% csrf_token %}<button class="btn2">Cancelar</button>
+    </form>
+  </div>
+
+  <p><b>Subtotal:</b> ${{ venta.subtotal }} | <b>Descuento:</b> ${{ venta.descuento }} | <b>Total:</b> ${{ venta.total }}</p>
+</div>
+
+<div class="row">
+  <div class="col">
+    <div class="card">
+      <h4>Detalles (artículos)</h4>
+      <form method="post" action="{% url 'ventas:venta_add_detalle' venta.id %}">
+        {% csrf_token %}
+        {{ detalle_form.as_p }}
+        <button class="btn" type="submit">Agregar artículo</button>
+      </form>
+
+      <hr>
+      <table>
+        <thead><tr><th>Artículo</th><th>Precio</th><th>Desc.</th><th></th></tr></thead>
+        <tbody>
+          {% for d in venta.detalles.all %}
+            <tr>
+              <td>{{ d.articulo.producto.sku }} / {{ d.articulo.serie|default:"SIN SERIE" }}</td>
+              <td>${{ d.precio }}</td>
+              <td>${{ d.descuento }}</td>
+              <td>
+                <form method="post" action="{% url 'ventas:venta_delete_detalle' venta.id d.id %}">
+                  {% csrf_token %}
+                  <button class="btn2">Eliminar</button>
+                </form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="muted">Sin artículos.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="card">
+      <h4>Pagos</h4>
+      <form method="post" action="{% url 'ventas:venta_add_pago' venta.id %}">
+        {% csrf_token %}
+        {{ pago_form.as_p }}
+        <button class="btn" type="submit">Registrar pago</button>
+      </form>
+
+      <hr>
+      <table>
+        <thead><tr><th>Método</th><th>Monto</th><th>Ref</th><th>Fecha</th></tr></thead>
+        <tbody>
+          {% for p in venta.pagos.all %}
+            <tr>
+              <td>{{ p.metodo }}</td>
+              <td>${{ p.monto }}</td>
+              <td>{{ p.referencia|default:"-" }}</td>
+              <td class="muted">{{ p.fecha }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="muted">Sin pagos.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
